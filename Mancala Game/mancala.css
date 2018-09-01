@@ -1,0 +1,102 @@
+div {
+    box-sizing: border-box;
+}
+
+#board {
+  position: relative;
+  border: 1px solid black;
+  box-shadow: 5px 5px 5px #333;
+  width: 800px;
+  height: 300px;
+}
+
+.column {
+  position: absolute;
+  width: 100px;
+  height: 300px;
+  border: 1px solid #666;
+
+  cursor: pointer;
+
+  top: 0;
+}
+
+.row {
+  position: absolute;
+  width: 100px;
+  height: 150px;
+  border: 1px solid #666;
+}
+
+#column-0 {
+  left: 0;
+}
+
+#column-1 {
+  left: 100px;
+}
+
+#column-2 {
+  left: 200px;
+}
+
+#column-3 {
+  left: 300px;
+}
+
+#column-4 {
+  left: 400px;
+}
+
+#column-5 {
+  left: 500px;
+}
+
+#column-6 {
+  left: 600px;
+}
+
+#column-7 {
+  left: 700px;
+}
+
+#row-1 {
+  top: 150px;
+}
+
+#row-2 {
+  top: 150px;
+}
+
+#row-3 {
+  top: 150px;
+}
+
+#row-4 {
+  top: 150px;
+}
+
+#row-5 {
+  top: 150px;
+}
+
+#row-6 {
+  top: 150px;
+}
+
+.pebble {
+  margin: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 75px;
+  border: 1px solid #444;
+  background-color: green;
+}
+
+#ui .pebble {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
