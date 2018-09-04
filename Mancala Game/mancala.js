@@ -4,29 +4,7 @@ const colors = ["green", "red"];
 /* globals */
 var turn = 0;
 
-var board = [
-  [4, 4, 4, 4, 4, 4],
-  [4, 4, 4, 4, 4, 4]
-]
-
-var scores = [0, 0]
-
-var order = [
-  "column-0",
-  "column-1",
-  "column-2",
-  "column-3",
-  "column-4",
-  "column-5",
-  "column-6",
-  "column-7",
-  "row-1",
-  "row-2",
-  "row-3",
-  "row-4",
-  "row-5",
-  "row-6",
-]
+var board = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 function displayTurn()
 {
@@ -34,16 +12,27 @@ function displayTurn()
   displayMessage("It is Player " + turn + "'s turn.");
 }
 
+function displayScore()
+{
+  document.getElementById("score").innerHTML = ("Player 0's Score: " + board[0] + "\n\nPlayer 1's Score: " + board[7]);
+}
+
 function displayMessage(message)
 {
   document.getElementById('ui').innerHTML = message;
 }
 
-function showPebbles()
+function initPebbles()
 {
   for (i = 1; i < 7; i++)
   {
-    for (j = 0; j < board[0][i-1]; j++)
+    board[i] += 4;
+    board[i+7] += 4;
+  }
+
+  for (i = 1; i < 7; i++)
+  {
+    for (j = 0; j < board[i]; j++)
     {
       var pebble = document.createElement('div');
       pebble.classList.add("pebble");
@@ -53,59 +42,78 @@ function showPebbles()
       columnElement.appendChild(pebble);
     }
 
-    for (j = 0; j < board[1][i-1]; j++)
+    for (j = 0; j < board[i+7]; j++)
     {
       var pebble = document.createElement('div');
       pebble.classList.add("pebble");
       pebble.left = j * 5;
       pebble.top = j * 5;
-      var rowElement = document.getElementById("row-" + i);
-      rowElement.appendChild(pebble);
+      var columnElement = document.getElementById("column-" + (i + 7));
+      columnElement.appendChild(pebble);
     }
   }
 }
 
-function movePebbles(columnIndex, turn)
+function takeTurn(columnIndex)
+{
+  if (turn == 0 && columnIndex < 7)
+  {
+    addPebbles(columnIndex, turn);
+    turn = 1;
+  }
+  else if (turn == 1 && columnIndex > 7)
+  {
+    addPebbles(columnIndex, turn);
+    turn = 0;
+  }
+
+  displayTurn();
+  displayScore();
+  checkEnd();
+}
+
+function addPebbles(columnIndex)
+{
+  for(var i = 0; i < board[columnIndex]; i++)
+  {
+    addPebble( ((columnIndex+i+1)%14) );
+    board[ ((columnIndex+i+1)%14) ] += 1;
+  }
+
+  //board[columnIndex] = 0; // to be added once I figure out how to remove pebbles
+}
+
+function addPebble(columnIndex)
 {
   var pebble = document.createElement('div');
   pebble.classList.add("pebble");
   pebble.left = j * 5;
   pebble.top = j * 5;
-
-  for (i = 4; i > 0; i--)
-  {
-    var rowElement = document.getElementById("row-" + columnIndex);
-    var pebble = rowElement.getElementById("pebble");
-  }
-
-  turn = (turn + 1) % 2;
-  displayTurn();
+  var columnElement = document.getElementById("column-" + columnIndex);
+  columnElement.appendChild(pebble);
 }
 
-function checkForScore(column, row)
+function checkEnd()
 {
-  var sum = 0;
-  for (i = 0; i < 5; i++)
-  {
-    sum += board[0][i];
-    sum += board[1][i];
-  }
+  var sum = board[0] + board[7];
 
-  if( sum == 0)
+  if( sum == 48)
   {
-    displayMessage("Game is over!!");
+    displayMessage("Game is over!! Refresh the page to start the game again.");
   }
 }
 
-// Main Loop
-showPebbles();
+initPebbles();
 
-for(var i = 0; i < 8; i++)
+for(var i = 1; i < 7; i++)
 {
   const col = i;
-  document.getElementById('column-' + col)
-    .addEventListener('click', function(event) {
+  document.getElementById('column-' + col).addEventListener('click', function(event) {
       event.preventDefault();
-      movePebbles(col, turn);
+      takeTurn(col);
     });
+    document.getElementById('column-' + (col+7)).addEventListener('click', function(event) {
+        event.preventDefault();
+        takeTurn(col+7);
+      });
 }

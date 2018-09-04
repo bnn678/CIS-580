@@ -13,7 +13,7 @@ div {
 .column {
   position: absolute;
   width: 100px;
-  height: 300px;
+  height: 150px;
   border: 1px solid #666;
 
   cursor: pointer;
@@ -21,15 +21,9 @@ div {
   top: 0;
 }
 
-.row {
-  position: absolute;
-  width: 100px;
-  height: 150px;
-  border: 1px solid #666;
-}
-
 #column-0 {
   left: 0;
+  height: 300px;
 }
 
 #column-1 {
@@ -58,30 +52,37 @@ div {
 
 #column-7 {
   left: 700px;
+  height: 300px;
 }
 
-#row-1 {
+#column-8 {
   top: 150px;
+  left: 600px;
 }
 
-#row-2 {
+#column-9 {
   top: 150px;
+  left: 500px;
 }
 
-#row-3 {
+#column-10 {
   top: 150px;
+  left: 400px;
 }
 
-#row-4 {
+#column-11 {
   top: 150px;
+  left: 300px;
 }
 
-#row-5 {
+#column-12 {
   top: 150px;
+  left: 200px;
 }
 
-#row-6 {
+#column-13 {
   top: 150px;
+  left: 100px;
 }
 
 .pebble {
@@ -99,4 +100,9 @@ div {
   width: 20px;
   height: 20px;
   margin: 0;
+}
+
+#score {
+  position: relative;
+  top: 50px;
 }
