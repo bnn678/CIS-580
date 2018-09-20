@@ -5,8 +5,8 @@
 const SCREEN_WIDTH = 740
 const SCREEN_HEIGHT = 480
 
-const MOVE_SPEED_ALIEN = .1;
-const MOVE_SPEED_BULLET = .1;
+const MOVE_SPEED_ALIEN = .2;
+const MOVE_SPEED_BULLET = .5;
 
 const PLAYER_WIDTH = 20;
 const PLAYER_HEIGHT = 20;
@@ -16,7 +16,7 @@ const BULLET_WIDTH = 10;
 const ALIEN_WIDTH = 50;
 const ALIEN_HEIGHT = 50;
 
-const ALIENS_PER_SPAWN = 1;
+const ALIENS_PER_SPAWN = 5;
 
 // Create the canvas and context
 var screen = document.createElement('canvas');
@@ -45,6 +45,7 @@ var player_x = 0;
 var player_y = SCREEN_HEIGHT/2;
 var bullets = [];
 var aliens = [];
+var aliens_hit = 0;
 
 
 
@@ -107,7 +108,11 @@ window.addEventListener('keyup', handleKeyup);
   */
 function loop(timestamp)
 {
-  if(!start) start = timestamp;
+  if(!start)
+  {
+    start = timestamp;
+    window.alert("Press space when you are ready to play!");
+  }
   var elapsedTime = timestamp - start;
   start = timestamp;
   update( elapsedTime);
@@ -159,11 +164,12 @@ function update( elapsedTime)
   {
     bullet.update(elapsedTime);
 
-    if( bullet.x < ( player_x + PLAYER_WIDTH))
+    if( bullet.x <= ( player_x + PLAYER_WIDTH))
     {
-      if( bullet.y < player_y && bullet.y > (player_y - PLAYER_WIDTH))
+      if( bullet.y >= player_y && bullet.y <= (player_y + PLAYER_WIDTH))
       {
-        console.log("Game Over!");
+        //console.log(player_x, player_y, bullet.x, bullet.y);
+        //Game_Over();
       }
     }
 
@@ -179,6 +185,7 @@ function update( elapsedTime)
             // destroy this bullet and alien
             bullets.splice(index, 1);
             aliens.splice(index2, 1);
+            aliens_hit += 1;
           }
         });
       }
@@ -190,7 +197,6 @@ function update( elapsedTime)
     if( bullet.x >= SCREEN_WIDTH || bullet.x <= (0-BULLET_WIDTH))
     {
       bullets.splice(index, 1);
-      // is it possible to use a break here?
     }
   });
 
@@ -198,7 +204,11 @@ function update( elapsedTime)
   {
     alien.update( elapsedTime);
 
-    if(alien.x <= (0- ALIEN_WIDTH)) aliens.splice( index, 1);
+    if(alien.x <= (0- ALIEN_WIDTH))
+    {
+      aliens.splice( index, 1);
+      Game_Over();
+    }
   });
 }
 
@@ -214,6 +224,11 @@ function render(elapsedTime)
   screenCtx.fillRect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT);
   bullets.forEach(function(bullet) { bullet.render(screenCtx); } );
   aliens.forEach(function(alien) { alien.render(screenCtx); } );
+}
+
+function Game_Over()
+{
+  window.alert("Game Over! You destroyed " + aliens_hit + " space invaders!\n\nRefresh the page to start again!");
 }
 
 
