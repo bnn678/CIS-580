@@ -2,11 +2,15 @@
   CONSTANTS
 /************************************************************************/
 // Screen dimensions
-const SCREEN_WIDTH = 740
-const SCREEN_HEIGHT = 480
+const GAME_WIDTH = 740;
+const GAME_HEIGHT = 480;
+const INTERFACE_WIDTH = GAME_WIDTH;
+const INTERFACE_HEIGHT = 20;
+const SCREEN_WIDTH = GAME_WIDTH;
+const SCREEN_HEIGHT = GAME_HEIGHT + INTERFACE_HEIGHT;
 
 const MOVE_SPEED_ALIEN = .2;
-const MOVE_SPEED_BULLET = .5;
+const MOVE_SPEED_BULLET = .3;
 
 const PLAYER_WIDTH = 20;
 const PLAYER_HEIGHT = 20;
@@ -17,6 +21,7 @@ const ALIEN_WIDTH = 50;
 const ALIEN_HEIGHT = 50;
 
 const ALIENS_PER_SPAWN = 5;
+const ALIENS_PER_LIFE = 20;
 
 // Create the canvas and context
 var screen = document.createElement('canvas');
@@ -42,10 +47,17 @@ var priorInput = {
   down: false
 }
 var player_x = 0;
-var player_y = SCREEN_HEIGHT/2;
+var player_y = GAME_HEIGHT/2;
+var player_lives = 3;
+var player_was_hit = false;
+var alien_invaded = false;
+
+var aliens_hit = 0;
+var game_over = 0;
+
 var bullets = [];
 var aliens = [];
-var aliens_hit = 0;
+var user_interface = new UserInterface();
 
 
 
@@ -109,13 +121,14 @@ window.addEventListener('keyup', handleKeyup);
 function loop(timestamp)
 {
   if(!start)
-  {
     start = timestamp;
-    window.alert("Press space when you are ready to play!");
-  }
+
   var elapsedTime = timestamp - start;
   start = timestamp;
-  update( elapsedTime);
+
+  if (! game_over)
+    update( elapsedTime);
+
   render( elapsedTime);
   copyInput();
   window.requestAnimationFrame(loop);
@@ -144,7 +157,7 @@ function update( elapsedTime)
 {
   // if space is pressed, shoot a bullet
   if(currentInput.space && !priorInput.space)
-    bullets.push(new Bullet( player_x + 10, player_y+(PLAYER_WIDTH/2), 0));
+    bullets.push(new Bullet( player_x + PLAYER_WIDTH - 2, player_y+(PLAYER_WIDTH/2), 0));
 
   // if up is pressed, move character up
   if(currentInput.up)
@@ -156,7 +169,7 @@ function update( elapsedTime)
   // if down is pressed, move character down
   if(currentInput.down)
   {
-    if( player_y < ( SCREEN_HEIGHT - PLAYER_HEIGHT) )
+    if( player_y < ( GAME_HEIGHT - PLAYER_HEIGHT) )
       player_y += 0.3 * elapsedTime;
   }
 
@@ -168,8 +181,11 @@ function update( elapsedTime)
     {
       if( bullet.y >= player_y && bullet.y <= (player_y + PLAYER_WIDTH))
       {
-        //console.log(player_x, player_y, bullet.x, bullet.y);
-        //Game_Over();
+        bullets.splice(index, 1);
+        player_lives -= 1;
+        player_was_hit = true;
+        if (player_lives < 1)
+          game_over = 1;
       }
     }
 
@@ -186,6 +202,9 @@ function update( elapsedTime)
             bullets.splice(index, 1);
             aliens.splice(index2, 1);
             aliens_hit += 1;
+
+            if (aliens_hit % ALIENS_PER_LIFE == 0)
+              player_lives += 1;
           }
         });
       }
@@ -194,7 +213,7 @@ function update( elapsedTime)
       spawnAliens();
 
     // check to see if bullet is off-screen
-    if( bullet.x >= SCREEN_WIDTH || bullet.x <= (0-BULLET_WIDTH))
+    if( bullet.x >= GAME_WIDTH || bullet.x <= (0-BULLET_WIDTH))
     {
       bullets.splice(index, 1);
     }
@@ -204,10 +223,11 @@ function update( elapsedTime)
   {
     alien.update( elapsedTime);
 
-    if(alien.x <= (0- ALIEN_WIDTH))
+    if(alien.x <= (0 - ALIEN_WIDTH))
     {
       aliens.splice( index, 1);
-      Game_Over();
+      alien_invaded = true;
+      game_over = 1;
     }
   });
 }
@@ -217,13 +237,14 @@ function update( elapsedTime)
   * @param {double} elapsedTime - the amount of time
   * elapsed between frames
   */
-function render(elapsedTime)
+function render()
 {
   screenCtx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
   screenCtx.fillStyle = "#00ff00";
   screenCtx.fillRect(player_x, player_y, PLAYER_WIDTH, PLAYER_HEIGHT);
-  bullets.forEach(function(bullet) { bullet.render(screenCtx); } );
-  aliens.forEach(function(alien) { alien.render(screenCtx); } );
+  bullets.forEach(function(bullet) { bullet.render(); } );
+  aliens.forEach(function(alien) { alien.render(); } );
+  user_interface.render();
 }
 
 function Game_Over()
@@ -252,12 +273,12 @@ Bullet.prototype.update = function(deltaT)
     this.x += deltaT * MOVE_SPEED_BULLET;
 }
 
-Bullet.prototype.render = function(context)
+Bullet.prototype.render = function()
 {
-  context.beginPath();
-  context.fillStyle = 'red';
+  screenCtx.beginPath();
+  screenCtx.fillStyle = 'red';
   screenCtx.fillRect(this.x, this.y, BULLET_WIDTH, 1);
-  context.fill();
+  screenCtx.fill();
 }
 
 
@@ -293,7 +314,7 @@ Alien.prototype.update = function( deltaT )
   }
   else
   {
-    if ((this.y+ALIEN_HEIGHT) < SCREEN_HEIGHT)
+    if ((this.y+ALIEN_HEIGHT) < GAME_HEIGHT)
     {
       this.y += deltaT * MOVE_SPEED_ALIEN;
     }
@@ -302,19 +323,108 @@ Alien.prototype.update = function( deltaT )
   this.x -= deltaT * MOVE_SPEED_ALIEN;
 }
 
-Alien.prototype.render = function(context)
+Alien.prototype.render = function()
 {
-  context.beginPath();
-  context.fillStyle = 'black';
+  screenCtx.beginPath();
+  screenCtx.fillStyle = 'black';
   screenCtx.fillRect(this.x, this.y, ALIEN_WIDTH, ALIEN_WIDTH);
-  context.fill();
+  screenCtx.fill();
 }
 
 function spawnAliens()
 {
   for (var i = 0; i < ALIENS_PER_SPAWN; i++)
   {
-    aliens.push(new Alien( SCREEN_WIDTH, ( SCREEN_HEIGHT/ ALIENS_PER_SPAWN ) * i));
+    aliens.push(new Alien( GAME_WIDTH, ( GAME_HEIGHT/ ALIENS_PER_SPAWN ) * i));
+  }
+}
+
+
+
+
+
+/************************************************************************
+  ALIEN CLASS
+/************************************************************************/
+function UserInterface() {}
+
+UserInterface.prototype.render = function()
+{
+  screenCtx.fillStyle = 'black';
+  screenCtx.font = "10px sans-serif"
+
+  var score_x = 20;
+  var player_lives_x = 180;
+  var game_over_status_x = 345;
+  var game_status_x = 600;
+  var interface_text_y = GAME_HEIGHT + INTERFACE_HEIGHT/2 + 5;
+
+  screenCtx.beginPath();
+  screenCtx.moveTo(0,GAME_HEIGHT);
+  screenCtx.lineTo(SCREEN_WIDTH, GAME_HEIGHT);
+  screenCtx.stroke();
+
+  screenCtx.moveTo( score_x + 140, GAME_HEIGHT);
+  screenCtx.lineTo( score_x + 140, SCREEN_HEIGHT);
+  screenCtx.stroke();
+
+  screenCtx.moveTo( game_status_x - 70, GAME_HEIGHT);
+  screenCtx.lineTo( game_status_x - 70, SCREEN_HEIGHT);
+  screenCtx.stroke();
+
+  screenCtx.fillStyle = '#d2d2d2';
+  screenCtx.fillRect(player_lives_x + 130, GAME_HEIGHT, 220, SCREEN_WIDTH);
+
+  screenCtx.fillStyle = 'black';
+  screenCtx.fillText("ALIENS DESTROYED: " + aliens_hit, score_x, interface_text_y);
+  screenCtx.fillText("PLAYER LIVES LEFT: " + player_lives, player_lives_x, interface_text_y);
+
+  if (aliens_hit < 1)
+  {
+    screenCtx.font = "20px Calibri"
+    screenCtx.fillText("You are humanity's last stand!", GAME_WIDTH/2 - 160, GAME_HEIGHT/2 - 20);
+    screenCtx.fillText("Don't let any aliens get through your defences!", GAME_WIDTH/2 - 220, GAME_HEIGHT/2 + 0);
+    screenCtx.fillText("Press space when you are ready to play!", GAME_WIDTH/2 - 190, GAME_HEIGHT/2 + 20);
+
+    screenCtx.fillText("TUTORIAL:", GAME_WIDTH/2 - 150, GAME_HEIGHT/2 + 100);
+    screenCtx.fillText("Press space to fire lasers", GAME_WIDTH/2 - 100, GAME_HEIGHT/2 + 120);
+    screenCtx.fillText("Press up/down to dodge alien lasers", GAME_WIDTH/2 - 100, GAME_HEIGHT/2 + 140);
+    screenCtx.fillText("You lose a life if you are hit", GAME_WIDTH/2 - 100, GAME_HEIGHT/2 + 160);
+    screenCtx.fillText("You gain a life if you destory "+ALIENS_PER_LIFE+" aliens", GAME_WIDTH/2 - 100, GAME_HEIGHT/2 + 180);
+    screenCtx.fillText("You lose the game if you have no lives", GAME_WIDTH/2 - 100, GAME_HEIGHT/2 + 200);
+    screenCtx.fillText("or if the aliens make it past your defenses", GAME_WIDTH/2 - 80, GAME_HEIGHT/2 + 220);
+  }
+
+  screenCtx.font = "10px sans-serif"
+  if (player_was_hit)
+  {
+    screenCtx.fillStyle = 'red';
+    screenCtx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    player_was_hit = false;
+  }
+
+  if (!game_over)
+  {
+    screenCtx.fillStyle = 'green';
+    screenCtx.fillText("Keep fighting!", game_status_x, interface_text_y);
+  }
+  else
+  {
+    screenCtx.fillText("Refresh the page to try again", GAME_WIDTH/2-100, GAME_HEIGHT/2 + 200);
+
+    screenCtx.fillStyle = 'red';
+    screenCtx.fillText("Game over!", game_status_x, interface_text_y);
+
+    screenCtx.font = "12px sans-serif"
+    if ( player_lives < 1 )
+      screenCtx.fillText("YOUR SHIP WAS DESTROYED!", game_over_status_x, interface_text_y);
+    if (alien_invaded)
+      screenCtx.fillText("THE ALIENS MADE IT PAST!", game_over_status_x, interface_text_y);
+
+    screenCtx.fillStyle = "#000000";
+    screenCtx.font = "15px sans-serif"
+    screenCtx.fillText("NOOOOOOOOOOOOOOOOOOOOOOOOOOO", GAME_WIDTH/2-180, GAME_HEIGHT/2);
   }
 }
 
@@ -324,5 +434,4 @@ function spawnAliens()
 /************************************************************************
   Start the game loop
 /************************************************************************/
-
 window.requestAnimationFrame(loop);
