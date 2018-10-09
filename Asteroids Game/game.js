@@ -1,4 +1,28 @@
 /************************************************************************
+  Contents:
+    CONSTANTS
+    Canvas & Document Init
+    GLOBAL VARIBLES
+
+    KEY LISTENERS : game function
+    HANDLE KEYS : game function
+    SPAWN ASTEROIDS : game function
+    SPAWN ALIEN : game function
+    WRAP OBJECT : game function
+
+    VECTOR : Class
+    PLAYER : Class
+    BULLET : Class
+    ASTEROID : Class
+    ALIEN : Class
+    USER INTERFACE : Class
+
+    UPDATE : game function
+    RENDER : game function
+    MAIN : game function
+/************************************************************************/
+
+/************************************************************************
   CONSTANTS
 /************************************************************************/
 /* Screen dimensions */
@@ -9,6 +33,7 @@ const INTERFACE_HEIGHT = 20;
 const SCREEN_WIDTH = GAME_WIDTH + INTERFACE_WIDTH;
 const SCREEN_HEIGHT = GAME_HEIGHT + INTERFACE_HEIGHT;
 
+/* Player attributes */
 const PLAYER_WIDTH = 20;
 const PLAYER_HEIGHT = 20;
 const PLAYER_MOVE_SPEED = 3;
@@ -18,11 +43,14 @@ const BULLET_MOVE_SPEED = .3;
 
 const ASTEROID_MOVE_SPEED = .05;
 const ASTEROID_STARTING_COUNT = 10;
-const ASTEROID_RADIUS = 10;
+const ASTEROID_STARTING_RADIUS = 10;
 
 const ALIEN_MOVE_SPEED = .0;
 const ALIEN_RELOAD_TIME = 100;
 
+/************************************************************************
+  Canvas & Document Init
+/************************************************************************/
 /*Create the canvas and context */
 var screen = document.createElement('canvas');
 var screenCtx = screen.getContext('2d');
@@ -30,12 +58,8 @@ screen.height = SCREEN_HEIGHT;
 screen.width = SCREEN_WIDTH;
 document.body.appendChild(screen);
 
-/*/// https://www.w3schools.com/graphics/game_sound.asp audio doesn't work
-var game_audio = document.createElement("audio");
-document.body.appendChild(this.sound);
-game_audio.src = src;
-this.sound.play();
-*/
+/* Credit to: https://www.w3schools.com/graphics/game_sound.asp */
+/* audio doesn't work on Ubuntu */
 function sound(src) {
     this.sound = document.createElement("audio");
     this.sound.src = src;
@@ -52,13 +76,14 @@ function sound(src) {
 }
 
 /* bfxr.net - can't use b/c firefox only supports wav */
-/* http://www.findsounds.com/ISAPI/search.dll?keywords=laser */
+/* Credit to: http://www.findsounds.com/ISAPI/search.dll?keywords=laser */
 var laser_sound = new sound("LASRLIT2.WAV");
-/* */
 var collision_sound = new sound("Collision.wav");
-/* */
 
-/* Game state variables */
+/************************************************************************
+  GLOBAL VARIBLES
+/************************************************************************/
+/* Input variables */
 var currentInput = {
   space: false,
   left: false,
@@ -250,26 +275,24 @@ function Spawn_Alien()
 }
 
 /************************************************************************
-  WRAP : object function
+  WRAP OBJECT : game function
 
   Wrap the given object around the map if necessary
 /************************************************************************/
-function WrapObject( obj) /// how do I pass a generic class object to this function?
+function Wrap_Object( obj, obj_width, obj_height) /// how do I pass a generic class object to this function?
 {
-  if( obj.x <= -PLAYER_WIDTH)
-    this.x = GAME_WIDTH;
-  else if( this.x >= GAME_WIDTH)
-    this.x = -PLAYER_WIDTH;
-  if( this.y <= -PLAYER_WIDTH)
-    this.y = GAME_HEIGHT;
-  else if( this.y >= GAME_HEIGHT)
-    this.y = -PLAYER_WIDTH;
+  if( obj.x <= -obj_width)
+    obj.x = GAME_WIDTH;
+  else if( obj.x >= GAME_WIDTH)
+    obj.x = -obj_width;
+  if( obj.y <= -obj_height)
+    obj.y = GAME_HEIGHT;
+  else if( obj.y >= GAME_HEIGHT)
+    obj.y = -obj_height;
 }
 
 /************************************************************************
   VECTOR : Class
-
-
 /************************************************************************/
 function Vector(magnitude, direction)
 {
@@ -288,9 +311,27 @@ Vector.prototype.getY = function()
 }
 
 /************************************************************************
+  MOVER : Class
+/************************************************************************/
+/* http://krasimirtsonev.com/blog/article/object-oriented-programming-oop-in-javascript-extending-Inheritance-classes */
+function Mover(x, y, magnitude, direction)
+{
+  this.x = x;
+  this.y = y;
+  this.magnitude = magnitude;
+  this.direction = direction;
+
+  this.vector = new Vector(this.magnitude, this.direction);
+}
+
+Mover.prototype.update = function(deltaT)
+{
+  this.x += this.vector.getX() * deltaT;
+  this.y += this.vector.getY() * deltaT;
+}
+
+/************************************************************************
   PLAYER : Class
-
-
 /************************************************************************/
 function Player(x, y, direction)
 {
@@ -333,15 +374,7 @@ Player.prototype.Check_Asteroid_Collision = function()
 Player.prototype.update = function( elapsedTime)
 {
   /* Wrap Player around the map if necessary */
-  // TODO: Optional: make this a general function
-  if( this.x <= -PLAYER_WIDTH)
-    this.x = GAME_WIDTH;
-  else if( this.x >= GAME_WIDTH)
-    this.x = -PLAYER_WIDTH;
-  if( this.y <= -PLAYER_WIDTH)
-    this.y = GAME_HEIGHT;
-  else if( this.y >= GAME_HEIGHT)
-    this.y = -PLAYER_WIDTH;
+  Wrap_Object( this, PLAYER_WIDTH, PLAYER_HEIGHT);
 
   this.Check_Asteroid_Collision();
 
@@ -395,8 +428,7 @@ function Bullet(x, y, direction)
 
 Bullet.prototype.update = function(deltaT)
 {
-  this.x += this.vector.getX() * deltaT;
-  this.y += this.vector.getY() * deltaT;
+  Mover.prototype.update();
 
   /* if at the map edge, remove this bullet from bullets */
   if( this.x >= GAME_WIDTH || this.x <= 0 ||
@@ -424,7 +456,7 @@ function Asteroid(x, y, size)
   this.x = x;
   this.y = y;
   this.size = size;
-  this.radius = ASTEROID_RADIUS * size;
+  this.radius = ASTEROID_STARTING_RADIUS * size;
 
   this.random = start + Math.floor(Math.random()*1000);
   this.vector = new Vector( ASTEROID_MOVE_SPEED, this.random);
@@ -432,7 +464,7 @@ function Asteroid(x, y, size)
   this.blowUp = function()
   {
     this.size -= 1;
-    this.radius = ASTEROID_RADIUS * this.size;
+    this.radius = ASTEROID_STARTING_RADIUS * this.size;
   }
 
   this.Check_Asteroid_Collision = function()
@@ -692,6 +724,7 @@ UserInterface.prototype.render = function()
 /************************************************************************/
 function update( elapsedTime)
 {
+  // TODO: move this
   if( asteroids.length == 0)
     round_over = 1;
   else
@@ -700,21 +733,9 @@ function update( elapsedTime)
   Handle_Keys( elapsedTime);
 
   player.update( elapsedTime);
-
-  bullets.forEach(function( bullet)
-  {
-    bullet.update( elapsedTime);
-  });
-
-  asteroids.forEach( function(asteroid, index)
-  {
-    asteroid.update( elapsedTime);
-  });
-
-  aliens.forEach( function(alien, index)
-  {
-    alien.update( elapsedTime);
-  });
+  bullets.forEach(function( bullet) { bullet.update( elapsedTime); });
+  asteroids.forEach( function(asteroid, index) { asteroid.update( elapsedTime); });
+  aliens.forEach( function(alien, index) { alien.update( elapsedTime); });
 }
 
 /************************************************************************
