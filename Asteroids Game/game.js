@@ -20,6 +20,9 @@ const ASTEROID_MOVE_SPEED = .05;
 const ASTEROID_STARTING_COUNT = 10;
 const ASTEROID_RADIUS = 10;
 
+const ALIEN_MOVE_SPEED = .0;
+const ALIEN_RELOAD_TIME = 100;
+
 /*Create the canvas and context */
 var screen = document.createElement('canvas');
 var screenCtx = screen.getContext('2d');
@@ -81,7 +84,7 @@ var game_start = false;
 var game_over = false;
 var round_over = false;
 var game_running = true;
-var show_instructions = false;
+var show_instructions = true;
 
 var round = 0;
 var debug = 0;
@@ -96,6 +99,7 @@ var asteroids_hit = 0;
 
 var bullets = [];
 var asteroids = [];
+var aliens = [];
 
 /************************************************************************
   KEY LISTENERS : game function
@@ -109,6 +113,7 @@ function handleKeydown(event)
     case ' ':
       currentInput.space = true;
       game_start = 1; // TODO: Optional: find a better place for this
+      show_instructions = false;
       break;
     case 'ArrowUp':
     case 'w':
@@ -216,6 +221,7 @@ function Handle_Keys( elapsedTime)
     {
       round += 1;
       Spawn_Asteroids();
+      Spawn_Alien();
     }
   }
 }
@@ -231,6 +237,16 @@ function Spawn_Asteroids()
   {
     asteroids.push( new Asteroid( Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, Math.floor( Math.random() * round + 1)));
   }
+}
+
+/************************************************************************
+  SPAWN ALIEN : game function
+
+  Generate Alien objects into game
+/************************************************************************/
+function Spawn_Alien()
+{
+  aliens.push( new Alien( Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, Math.random() * Math.PI * 2));
 }
 
 /************************************************************************
@@ -365,11 +381,12 @@ function Bullet(x, y, direction)
          && this.y <= ( asteroid.y + asteroid.radius))
         {
           bullets.splice( bullets.indexOf( this), 1);
-          asteroid.x += asteroid.radius / 2;
-          asteroid.y += asteroid.radius / 2;
-          asteroids.push( new Asteroid( asteroid.x - asteroid.radius, asteroid.y - asteroid.radius, asteroid.size - 1));
-          asteroid.blowUp();
           asteroids_hit += 1;
+
+          // TODO: Optional: make asteroids explode away from point of impact
+          asteroid.blowUp();
+          asteroids.push( new Asteroid( asteroid.x - asteroid.radius - 2, asteroid.y + Math.random() * 4, asteroid.size));
+          asteroid.x += asteroid.radius;
         }
       }
     }
@@ -486,6 +503,85 @@ Asteroid.prototype.render = function()
 /************************************************************************/
 // TODO: Optional: Implement alien. Bonus credit.
 // TODO: Optional: utilize a Shooter superclass & inheirtance
+function Alien(x, y, direction)
+{
+  this.x = x;
+  this.y = y;
+  this.vector = new Vector( ALIEN_MOVE_SPEED, direction);
+}
+
+Alien.prototype.Check_Asteroid_Collision = function()
+{
+  for ( var i = 0; i < asteroids.length; i++ )
+  {
+    var rect = this;
+    var circle = asteroids[i];
+
+    var distX = Math.abs( circle.x - rect.x - PLAYER_WIDTH/2);
+    var distY = Math.abs( circle.y - rect.y - PLAYER_HEIGHT/2);
+
+    var dx = distX - PLAYER_WIDTH/2;
+    var dy = distY - PLAYER_HEIGHT/2;
+    if( dx * dx + dy * dy <= ( circle.radius * circle.radius))
+    {
+      aliens.splice( aliens.indexOf( this), 1);
+      asteroids.splice( asteroids.indexOf( circle), 1);
+      collision_sound.play();
+    }
+  }
+}
+
+var last_alien_shot = 0;
+Alien.prototype.Shoot = function()
+{
+  if( last_alien_shot >= ALIEN_RELOAD_TIME)
+  {
+    bullets.push(new Bullet( this.x, this.y, Math.atan( this.x - player.x / this.y - player.y)));
+    laser_sound.play();
+    last_alien_shot = 0;
+  }
+  last_alien_shot += 1;
+}
+
+Alien.prototype.update = function( elapsedTime)
+{
+  /* Wrap Player around the map if necessary */
+  // TODO: Optional: make this a general function
+  if( this.x <= -PLAYER_WIDTH)
+    this.x = GAME_WIDTH;
+  else if( this.x >= GAME_WIDTH)
+    this.x = -PLAYER_WIDTH;
+  if( this.y <= -PLAYER_WIDTH)
+    this.y = GAME_HEIGHT;
+  else if( this.y >= GAME_HEIGHT)
+    this.y = -PLAYER_WIDTH;
+
+  this.x += this.vector.getX() * elapsedTime;
+  this.y += this.vector.getY() * elapsedTime;
+
+  this.Shoot();
+
+  this.Check_Asteroid_Collision();
+
+  var alien = this;
+  bullets.forEach( function(bullet, index)
+  {
+    if( bullet.x <= ( alien.x + PLAYER_WIDTH))
+    {
+      if( bullet.y >= alien.y && bullet.y <= (alien.y + PLAYER_WIDTH))
+      {
+        bullets.splice(index, 1);
+        aliens.splice( aliens.indexOf(alien), 1);
+      }
+    }
+  });
+}
+
+Alien.prototype.render = function()
+{
+  screenCtx.fillStyle = "red";
+  screenCtx.fillRect(this.x, this.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+}
 
 /************************************************************************
   USER INTERFACE : Class
@@ -505,7 +601,6 @@ UserInterface.prototype.render = function()
   var game_over_box_x = 420;
   var game_over_status_text_x = game_over_box_x + 40;
   var game_status_x = 680;
-
 
   screenCtx.fillStyle = '#FFFFFF';
   screenCtx.fillRect( 0, GAME_HEIGHT+1, SCREEN_WIDTH, interface_y);
@@ -533,21 +628,21 @@ UserInterface.prototype.render = function()
   /* could also use fillStyle = '#d2d2d2' */
   screenCtx.fillRect( game_over_box_x, GAME_HEIGHT+1, 245, interface_y);
 
+  // TODO: Optional: fix round_over flag
+  if( round_over == false)
+  {
+    screenCtx.fillStyle = 'white';
+    // screenCtx.fillText("Press ESC to see tutorial.", game_over_status_text_x, interface_text_y);
+  }
   if (! game_start || round_over)
   {
     screenCtx.fillStyle = 'black';
     screenCtx.fillText("Press Space to start", GAME_WIDTH/2-100, GAME_HEIGHT/2 + 200);
-
-    screenCtx.fillStyle = 'grey';
-    screenCtx.fillText("Waiting to start", game_status_x, interface_text_y);
   }
   else if (! game_over)
   {
     screenCtx.fillStyle = 'green';
     screenCtx.fillText("Keep fighting!", game_status_x, interface_text_y);
-
-    screenCtx.fillStyle = 'white';
-    screenCtx.fillText("Press ESC to see tutorial.", game_over_status_text_x, interface_text_y);
   }
   else
   {
@@ -574,9 +669,19 @@ UserInterface.prototype.render = function()
 
   if( show_instructions == true)
   {
+    var starting_y = 100;
     screenCtx.fillStyle = "#000000";
-    screenCtx.font = "12px sans-serif"
-    screenCtx.fillText("Instructions", 250, 250);
+    screenCtx.font = "20px sans-serif"
+    screenCtx.fillText("Instructions:", 250, starting_y);
+
+    screenCtx.font = "16px sans-serif"
+    screenCtx.fillText("Left arrow turns the ship to the left.", 300, starting_y + 50);
+    screenCtx.fillText("Right arrow turns the ship to the right.", 300, starting_y + 70);
+    screenCtx.fillText("Up arrow moves the ship forward.", 300, starting_y + 90);
+    screenCtx.fillText("Down arrow moves the ship backward.", 300, starting_y + 110);
+    screenCtx.fillText("Space fires a laser beam.", 300, starting_y + 130);
+    screenCtx.fillText("Q teleports the player to a random location.", 300, starting_y + 150);
+    screenCtx.fillText("ESC will toggle instructions.", 300, starting_y + 170);
   }
 }
 
@@ -605,6 +710,11 @@ function update( elapsedTime)
   {
     asteroid.update( elapsedTime);
   });
+
+  aliens.forEach( function(alien, index)
+  {
+    alien.update( elapsedTime);
+  });
 }
 
 /************************************************************************
@@ -617,7 +727,8 @@ function render()
   screenCtx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
   player.render();
   bullets.forEach(function(bullet) { bullet.render(); } );
-  asteroids.forEach(function(alien) { alien.render(); } );
+  asteroids.forEach(function(asteroid) { asteroid.render(); } );
+  aliens.forEach(function(alien) { alien.render(); } );
   user_interface.render();
 }
 
