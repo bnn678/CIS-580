@@ -4,9 +4,9 @@
 /* Screen dimensions */
 const GAME_WIDTH = 740;
 const GAME_HEIGHT = 480;
-const INTERFACE_WIDTH = GAME_WIDTH;
+const INTERFACE_WIDTH = 20;
 const INTERFACE_HEIGHT = 20;
-const SCREEN_WIDTH = GAME_WIDTH;
+const SCREEN_WIDTH = GAME_WIDTH + INTERFACE_WIDTH;
 const SCREEN_HEIGHT = GAME_HEIGHT + INTERFACE_HEIGHT;
 
 const PLAYER_WIDTH = 20;
@@ -16,9 +16,9 @@ const PLAYER_TURN_SPEED = .005;
 
 const BULLET_MOVE_SPEED = .3;
 
-const ASTEROID_MOVE_SPEED = .2;
+const ASTEROID_MOVE_SPEED = .05;
 const ASTEROID_STARTING_COUNT = 10;
-const ASTEROID_RADIUS = 20;
+const ASTEROID_RADIUS = 10;
 
 /*Create the canvas and context */
 var screen = document.createElement('canvas');
@@ -309,6 +309,7 @@ Player.prototype.Check_Asteroid_Collision = function()
       player.was_hit = true;
       player.lives -= 1;
       asteroids.splice( asteroids.indexOf( circle), 1);
+      collision_sound.play();
     }
   }
 }
@@ -441,7 +442,6 @@ function Asteroid(x, y, size)
 
         this.vector.magnitude = Math.sqrt( Math.pow( x1, 2) + Math.pow( y1, 2));
         this.vector.direction = Math.acos( x1 / this.vector.magnitude);
-        // console.log( Math.acos( x1 / this.vector.magnitude), Math.asin( y1 / this.vector.magnitude))
 
         asteroid.vector.magnitude = Math.sqrt( Math.pow( x2, 2) + Math.pow( y2, 2));
         asteroid.vector.direction = Math.acos( x2 / asteroid.vector.magnitude)
@@ -496,12 +496,16 @@ function UserInterface() {}
 // TODO: Optional: use an HTML element instead of the Canvas
 UserInterface.prototype.render = function()
 {
-  var score_x = 15;
-  var player_lives_x = 180;
-  var game_over_status_x = 345;
-  var game_status_x = 600;
   var interface_y = GAME_HEIGHT+1;
   var interface_text_y = GAME_HEIGHT + INTERFACE_HEIGHT/2 + 5;
+
+  var score_x = 15;
+  var player_lives_x = 180;
+  var game_level_x = 310;
+  var game_over_box_x = 420;
+  var game_over_status_text_x = game_over_box_x + 40;
+  var game_status_x = 680;
+
 
   screenCtx.fillStyle = '#FFFFFF';
   screenCtx.fillRect( 0, GAME_HEIGHT+1, SCREEN_WIDTH, interface_y);
@@ -518,11 +522,16 @@ UserInterface.prototype.render = function()
   screenCtx.lineTo( score_x + 148, SCREEN_HEIGHT);
   screenCtx.stroke();
 
+  screenCtx.moveTo( game_level_x, GAME_HEIGHT);
+  screenCtx.lineTo( game_level_x, SCREEN_HEIGHT);
+  screenCtx.stroke();
+
   screenCtx.fillText("ASTEROIDS DESTROYED: " + asteroids_hit, score_x, interface_text_y);
   screenCtx.fillText("PLAYER LIVES LEFT: " + player.lives, player_lives_x, interface_text_y);
+  screenCtx.fillText("Level: " + round, game_level_x + 35, interface_text_y);
 
   /* could also use fillStyle = '#d2d2d2' */
-  screenCtx.fillRect(player_lives_x + 125, GAME_HEIGHT+1, 245, interface_y);
+  screenCtx.fillRect( game_over_box_x, GAME_HEIGHT+1, 245, interface_y);
 
   if (! game_start || round_over)
   {
@@ -536,6 +545,9 @@ UserInterface.prototype.render = function()
   {
     screenCtx.fillStyle = 'green';
     screenCtx.fillText("Keep fighting!", game_status_x, interface_text_y);
+
+    screenCtx.fillStyle = 'white';
+    screenCtx.fillText("Press ESC to see tutorial.", game_over_status_text_x, interface_text_y);
   }
   else
   {
@@ -545,7 +557,7 @@ UserInterface.prototype.render = function()
     screenCtx.fillText("Game over!", game_status_x, interface_text_y);
 
     screenCtx.font = "12px sans-serif"
-    screenCtx.fillText("YOUR SHIP WAS DESTROYED!", game_over_status_x, interface_text_y);
+    screenCtx.fillText("YOUR SHIP WAS DESTROYED!", game_over_status_text_x, interface_text_y);
 
     screenCtx.fillStyle = "#000000";
     screenCtx.font = "15px sans-serif"
