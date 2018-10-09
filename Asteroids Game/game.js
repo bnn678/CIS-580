@@ -428,7 +428,7 @@ function Asteroid(x, y, size)
         break;
 
       var distance = Math.pow( this.x - asteroid.x, 2) + Math.pow( this.y - asteroid.y, 2);
-      if( distance < this.radius * asteroid.radius )
+      if( distance < Math.pow(this.radius + asteroid.radius, 2) )
       {
         collision_sound.play();
 
@@ -445,8 +445,6 @@ function Asteroid(x, y, size)
 
         asteroid.vector.magnitude = Math.sqrt( Math.pow( x2, 2) + Math.pow( y2, 2));
         asteroid.vector.direction = Math.acos( x2 / asteroid.vector.magnitude)
-
-        console.log( this.vector.direction, asteroid.vector.direction);
       }
     }
   }
@@ -659,8 +657,8 @@ function loop(timestamp)
 
 /* helps to debug asteroid collision */
 /*
-asteroids.push( new Asteroid( 200, 250, 2));
-asteroids.push( new Asteroid( 300, 250, 2));
+asteroids.push( new Asteroid( 200, 100, 2));
+asteroids.push( new Asteroid( 300, 100, 2));
 asteroids[0].vector.direction = 0;
 asteroids[1].vector.direction = Math.PI;
 */
