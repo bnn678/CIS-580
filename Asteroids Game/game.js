@@ -16,8 +16,8 @@ const PLAYER_TURN_SPEED = .005;
 
 const BULLET_MOVE_SPEED = .3;
 
-const ASTEROID_MOVE_SPEED = .005;
-const ASTEROID_STARTING_COUNT = 1;
+const ASTEROID_MOVE_SPEED = .2;
+const ASTEROID_STARTING_COUNT = 10;
 const ASTEROID_RADIUS = 20;
 
 /*Create the canvas and context */
@@ -27,15 +27,33 @@ screen.height = SCREEN_HEIGHT;
 screen.width = SCREEN_WIDTH;
 document.body.appendChild(screen);
 
-/// https://www.w3schools.com/graphics/game_sound.asp audio doesn't work
-/*
-var game_audio = document.createElement("myAudio");
+/*/// https://www.w3schools.com/graphics/game_sound.asp audio doesn't work
+var game_audio = document.createElement("audio");
+document.body.appendChild(this.sound);
 game_audio.src = src;
 this.sound.play();
-
-var audio1 = new sound("bounce.mp3");
-audio1.play();
 */
+function sound(src) {
+    this.sound = document.createElement("audio");
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.style.display = "none";
+    document.body.appendChild(this.sound);
+    this.play = function(){
+        this.sound.play();
+    }
+    this.stop = function(){
+        this.sound.pause();
+    }
+}
+
+/* bfxr.net - can't use b/c firefox only supports wav */
+/* http://www.findsounds.com/ISAPI/search.dll?keywords=laser */
+var laser_sound = new sound("LASRLIT2.WAV");
+/* */
+var collision_sound = new sound("Collision.wav");
+/* */
 
 /* Game state variables */
 var currentInput = {
@@ -65,7 +83,7 @@ var round_over = false;
 var game_running = true;
 var show_instructions = false;
 
-var round = 1;
+var round = 0;
 var debug = 0;
 var game_runs = 0;
 
@@ -192,7 +210,7 @@ function Handle_Keys( elapsedTime)
   if(currentInput.space && !priorInput.space)
   {
     bullets.push(new Bullet( player.x, player.y, player.vector.direction));
-    // TODO: add sound effect
+    laser_sound.play();
 
     if( round_over)
     {
@@ -402,7 +420,6 @@ function Asteroid(x, y, size)
   this.Check_Asteroid_Collision = function()
   {
     // TODO: get this to work.
-    // TODO: add a sound effect.
     for ( var i = 0; i < asteroids.length; i++ )
     {
       var asteroid = asteroids[i];
@@ -410,17 +427,32 @@ function Asteroid(x, y, size)
       if( asteroid == this)
         break;
 
-      var distance = Math.pow( this.x - asteroid.x, 2) + Math.pow( this.y - asteroid.y);
-      if( this.radius * asteroid.radius > Math.pow(this.x - asteroid.x) + Math.pow(this.y - asteroid.y))
+      var distance = Math.pow( this.x - asteroid.x, 2) + Math.pow( this.y - asteroid.y, 2);
+      if( distance < this.radius * asteroid.radius )
       {
-        console.log("made it");
-        this.direction -= 1;
+        collision_sound.play();
+
+        /* https://gamedevelopment.tutsplus.com/tutorials/when-worlds-collide-simulating-circle-circle-collisions--gamedev-769 */
+        var x1 = (this.vector.getX() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getX())) / (this.radius + asteroid.radius);
+        var y1 = (this.vector.getY() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getY())) / (this.radius + asteroid.radius);
+
+        var x2 = (asteroid.vector.getX() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getX())) / (this.radius + asteroid.radius);
+        var y2 = (asteroid.vector.getY() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getY())) / (this.radius + asteroid.radius);
+
+        this.vector.magnitude = Math.sqrt( Math.pow( x1, 2) + Math.pow( y1, 2));
+        this.vector.direction = Math.acos( x1 / this.vector.magnitude);
+        // console.log( Math.acos( x1 / this.vector.magnitude), Math.asin( y1 / this.vector.magnitude))
+
+        asteroid.vector.magnitude = Math.sqrt( Math.pow( x2, 2) + Math.pow( y2, 2));
+        asteroid.vector.direction = Math.acos( x2 / asteroid.vector.magnitude)
+
+        console.log( this.vector.direction, asteroid.vector.direction);
       }
     }
   }
 }
 
-Asteroid.prototype.update = function( deltaT ) /// what's the difference between this and the blow up function?
+Asteroid.prototype.update = function( deltaT )
 {
   // TODO: Optional: generalize this as a function
   if( this.x <= -PLAYER_WIDTH)
@@ -633,5 +665,3 @@ asteroids[0].vector.direction = 0;
 asteroids[1].vector.direction = Math.PI;
 */
 window.requestAnimationFrame(loop);
-
-/* bfxr.net for audio */
