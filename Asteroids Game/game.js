@@ -90,7 +90,7 @@ function handleKeydown(event)
   {
     case ' ':
       currentInput.space = true;
-      game_start = 1; // TODO: find a better place for this
+      game_start = 1; // TODO: Optional: find a better place for this
       break;
     case 'ArrowUp':
     case 'w':
@@ -111,7 +111,7 @@ function handleKeydown(event)
     case 'q':
       currentInput.q = true;
       break;
-    case 27:
+    case 'Escape':
       currentInput.esc = true;
       break;
   }
@@ -144,7 +144,7 @@ function handleKeyup(event)
     case 'q':
       currentInput.q = false;
       break;
-    case 27:
+    case 'Escape':
       currentInput.esc = false;
       break;
   }
@@ -184,11 +184,9 @@ function Handle_Keys( elapsedTime)
   if( currentInput.q && !priorInput.q)
     player.Teleport();
 
-  // TODO: get "esc" key working /// why doesn't escape key work?
-  // console.log(show_instructions, currentInput.esc, priorInput.esc);
-  if( currentInput.esc && ! priorInput.esc)
+  if( currentInput.esc && ! priorInput.esc && show_instructions == false)
     show_instructions = true;
-  else if(! currentInput.esc && priorInput.esc)
+  else if( currentInput.esc && ! priorInput.esc && show_instructions == true)
     show_instructions = false;
 
   if(currentInput.space && !priorInput.space)
@@ -197,7 +195,10 @@ function Handle_Keys( elapsedTime)
     // TODO: add sound effect
 
     if( round_over)
+    {
+      round += 1;
       Spawn_Asteroids();
+    }
   }
 }
 
@@ -210,8 +211,7 @@ function Spawn_Asteroids()
 {
   for( var i = 0; i < ASTEROID_STARTING_COUNT + round; i++ )
   {
-    var a = new Asteroid( Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, 2);
-    asteroids.push( a);
+    asteroids.push( new Asteroid( Math.random() * GAME_WIDTH, Math.random() * GAME_HEIGHT, Math.floor( Math.random() * round + 1)));
   }
 }
 
@@ -220,9 +220,9 @@ function Spawn_Asteroids()
 
   Wrap the given object around the map if necessary
 /************************************************************************/
-function WrapObject( ) /// how do I pass a generic class object to this function?
+function WrapObject( obj) /// how do I pass a generic class object to this function?
 {
-  if( this.x <= -PLAYER_WIDTH)
+  if( obj.x <= -PLAYER_WIDTH)
     this.x = GAME_WIDTH;
   else if( this.x >= GAME_WIDTH)
     this.x = -PLAYER_WIDTH;
@@ -276,21 +276,21 @@ Player.prototype.Teleport = function()
 
 Player.prototype.Check_Asteroid_Collision = function()
 {
-  // TODO: get this working. It will also need to be added to update.
-  // TODO: add sound effect
   for ( var i = 0; i < asteroids.length; i++ )
   {
-    debug = 1;
-    var circle = asteroids[i];
     var rect = this;
+    var circle = asteroids[i];
 
-    var rx = Math.clamp(circle.x, rect.x, rect.x + rect.width);
-    var ry = Math.clamp(circle.y, rect.y, rect.y + rect.height);
-    var distSquared =
-      Math.pow(rx - circle.x, 2) +
-      Math.pow(ry - circle.y, 2);
-    if(distSquared < Math.pow(radius, 2)) {
-      game_over = 1;
+    var distX = Math.abs( circle.x - rect.x - PLAYER_WIDTH/2);
+    var distY = Math.abs( circle.y - rect.y - PLAYER_HEIGHT/2);
+
+    var dx = distX - PLAYER_WIDTH/2;
+    var dy = distY - PLAYER_HEIGHT/2;
+    if( dx * dx + dy * dy <= ( circle.radius * circle.radius))
+    {
+      player.was_hit = true;
+      player.lives -= 1;
+      asteroids.splice( asteroids.indexOf( circle), 1);
     }
   }
 }
@@ -298,7 +298,7 @@ Player.prototype.Check_Asteroid_Collision = function()
 Player.prototype.update = function( elapsedTime)
 {
   /* Wrap Player around the map if necessary */
-  // TODO: make this a general function
+  // TODO: Optional: make this a general function
   if( this.x <= -PLAYER_WIDTH)
     this.x = GAME_WIDTH;
   else if( this.x >= GAME_WIDTH)
@@ -308,10 +308,12 @@ Player.prototype.update = function( elapsedTime)
   else if( this.y >= GAME_HEIGHT)
     this.y = -PLAYER_WIDTH;
 
-  if (this.lives < 1)
-    game_over = 1;
+  this.Check_Asteroid_Collision();
 
-  // this.Check_Asteroid_Collision();
+  if( this.lives <= 0)
+  {
+    game_over = true;
+  }
 }
 
 Player.prototype.render = function()
@@ -344,6 +346,9 @@ function Bullet(x, y, direction)
          && this.y <= ( asteroid.y + asteroid.radius))
         {
           bullets.splice( bullets.indexOf( this), 1);
+          asteroid.x += asteroid.radius / 2;
+          asteroid.y += asteroid.radius / 2;
+          asteroids.push( new Asteroid( asteroid.x - asteroid.radius, asteroid.y - asteroid.radius, asteroid.size - 1));
           asteroid.blowUp();
           asteroids_hit += 1;
         }
@@ -417,7 +422,7 @@ function Asteroid(x, y, size)
 
 Asteroid.prototype.update = function( deltaT ) /// what's the difference between this and the blow up function?
 {
-  // TODO: generalize this as a function
+  // TODO: Optional: generalize this as a function
   if( this.x <= -PLAYER_WIDTH)
     this.x = GAME_WIDTH;
   else if( this.x >= GAME_WIDTH)
@@ -449,7 +454,8 @@ Asteroid.prototype.render = function()
 
   Defines all functions are varibles for the ALIEN object
 /************************************************************************/
-// TODO: Bonus credit. Implement alien.  Optional: utilize a Shooter superclass & inheirtance
+// TODO: Optional: Implement alien. Bonus credit.
+// TODO: Optional: utilize a Shooter superclass & inheirtance
 
 /************************************************************************
   USER INTERFACE : Class
@@ -458,7 +464,6 @@ Asteroid.prototype.render = function()
 /************************************************************************/
 function UserInterface() {}
 // TODO: Optional: use an HTML element instead of the Canvas
-// TODO: add instructions
 UserInterface.prototype.render = function()
 {
   var score_x = 15;
@@ -522,7 +527,7 @@ UserInterface.prototype.render = function()
     screenCtx.fillStyle = 'red';
     screenCtx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    player_was_hit = false;
+    player.was_hit = false;
   }
 
   if( show_instructions == true)
