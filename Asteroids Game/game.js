@@ -20,6 +20,9 @@
     UPDATE : game function
     RENDER : game function
     MAIN : game function
+
+    // CANDO: possible improvements
+    // TODO: must do for assignment
 /************************************************************************/
 
 /************************************************************************
@@ -45,7 +48,7 @@ const ASTEROID_MOVE_SPEED = .05;
 const ASTEROID_STARTING_COUNT = 10;
 const ASTEROID_STARTING_RADIUS = 10;
 
-const ALIEN_MOVE_SPEED = .0;
+const ALIEN_MOVE_SPEED = .2;
 const ALIEN_RELOAD_TIME = 100;
 
 /************************************************************************
@@ -111,7 +114,7 @@ var round_over = false;
 var game_running = true;
 var show_instructions = true;
 
-var round = 0;
+var round = 2;
 var debug = 0;
 var game_runs = 0;
 
@@ -137,7 +140,7 @@ function handleKeydown(event)
   {
     case ' ':
       currentInput.space = true;
-      game_start = 1; // TODO: Optional: find a better place for this
+      game_start = 1; // CANDO: find a better place for this
       show_instructions = false;
       break;
     case 'ArrowUp':
@@ -279,15 +282,15 @@ function Spawn_Alien()
 
   Wrap the given object around the map if necessary
 /************************************************************************/
-function Wrap_Object( obj, obj_width, obj_height) /// how do I pass a generic class object to this function?
+function Screenwrap_Object( obj, obj_width, obj_height) /// how do I pass a generic class object to this function?
 {
   if( obj.x <= -obj_width)
-    obj.x = GAME_WIDTH;
-  else if( obj.x >= GAME_WIDTH)
+    obj.x = GAME_WIDTH+obj_width;
+  else if( obj.x >= GAME_WIDTH+obj_width)
     obj.x = -obj_width;
   if( obj.y <= -obj_height)
-    obj.y = GAME_HEIGHT;
-  else if( obj.y >= GAME_HEIGHT)
+    obj.y = GAME_HEIGHT+obj_height;
+  else if( obj.y >= GAME_HEIGHT+obj_height)
     obj.y = -obj_height;
 }
 
@@ -314,6 +317,7 @@ Vector.prototype.getY = function()
   MOVER : Class
 /************************************************************************/
 /* http://krasimirtsonev.com/blog/article/object-oriented-programming-oop-in-javascript-extending-Inheritance-classes */
+// CANDO: finish implementing this super class
 function Mover(x, y, magnitude, direction)
 {
   this.x = x;
@@ -374,9 +378,27 @@ Player.prototype.Check_Asteroid_Collision = function()
 Player.prototype.update = function( elapsedTime)
 {
   /* Wrap Player around the map if necessary */
-  Wrap_Object( this, PLAYER_WIDTH, PLAYER_HEIGHT);
+  Screenwrap_Object( this, PLAYER_WIDTH, PLAYER_HEIGHT);
 
   this.Check_Asteroid_Collision();
+
+  /* Check alien bullet collision */
+  var alien = this;
+  bullets.forEach( function(bullet, index)
+  {
+    if( bullet.is_alien)
+    {
+      if( bullet.x <= ( alien.x + PLAYER_WIDTH) && bullet.x >= ( alien.x))
+      {
+        if( bullet.y >= alien.y && bullet.y <= (alien.y + PLAYER_WIDTH))
+        {
+          bullets.splice(index, 1);
+          player.was_hit = true;
+          player.lives -= 1;
+        }
+      }
+    }
+  });
 
   if( this.lives <= 0)
   {
@@ -401,26 +423,39 @@ function Bullet(x, y, direction)
   this.y = y;
   this.vector = new Vector(BULLET_MOVE_SPEED, direction);
 
-  this.Check_Asteroid_Collision = function()
+  this.is_alien = false;
+}
+
+Bullet.prototype.Check_Asteroid_Collision = function()
+{
+  for ( var i = 0; i < asteroids.length; i++ )
   {
-    for ( var i = 0; i < asteroids.length; i++ )
+    var asteroid = asteroids[i];
+
+    if( this.x >= ( asteroid.x - asteroid.radius)
+     && this.x <= ( asteroid.x + asteroid.radius))
     {
-      var asteroid = asteroids[i];
-
-      if( this.x >= ( asteroid.x - asteroid.radius)
-       && this.x <= ( asteroid.x + asteroid.radius))
+      if( this.y >= ( asteroid.y - asteroid.radius)
+       && this.y <= ( asteroid.y + asteroid.radius))
       {
-        if( this.y >= ( asteroid.y - asteroid.radius)
-         && this.y <= ( asteroid.y + asteroid.radius))
-        {
-          bullets.splice( bullets.indexOf( this), 1);
-          asteroids_hit += 1;
+        var angle_of_defraction = Math.PI / 4;
+        var collision_point_x = this.x;
+        var collision_point_y = this.y;
 
-          // TODO: Optional: make asteroids explode away from point of impact
-          asteroid.blowUp();
-          asteroids.push( new Asteroid( asteroid.x - asteroid.radius - 2, asteroid.y + Math.random() * 4, asteroid.size));
-          asteroid.x += asteroid.radius;
-        }
+        /* modify the asteroid getting blown up */
+        asteroid.vector.direction = this.vector.direction - angle_of_defraction;
+        asteroid.blowUp();
+
+        /* create baby asteroid to add to game */
+        // CANDO: change the location of the new asteroid
+        var new_asteroid = new Asteroid( asteroid.x, asteroid.y + 2*asteroid.radius + 5, asteroid.size);
+        new_asteroid.vector.direction = this.vector.direction + angle_of_defraction;
+
+        asteroids.push( new_asteroid);
+
+        bullets.splice( bullets.indexOf( this), 1);
+        this.x = -100; this.y = -100;
+        asteroids_hit += 1;
       }
     }
   }
@@ -428,7 +463,8 @@ function Bullet(x, y, direction)
 
 Bullet.prototype.update = function(deltaT)
 {
-  Mover.prototype.update();
+  this.x += this.vector.getX() * deltaT;
+  this.y += this.vector.getY() * deltaT;
 
   /* if at the map edge, remove this bullet from bullets */
   if( this.x >= GAME_WIDTH || this.x <= 0 ||
@@ -460,48 +496,50 @@ function Asteroid(x, y, size)
 
   this.random = start + Math.floor(Math.random()*1000);
   this.vector = new Vector( ASTEROID_MOVE_SPEED, this.random);
+}
 
-  this.blowUp = function()
-  {
-    this.size -= 1;
-    this.radius = ASTEROID_STARTING_RADIUS * this.size;
-  }
+Asteroid.prototype.blowUp = function()
+{
+  this.size -= 1;
+  this.radius = ASTEROID_STARTING_RADIUS * this.size;
+}
 
-  this.Check_Asteroid_Collision = function()
+Asteroid.prototype.Check_Asteroid_Collision = function()
+{
+  // CANDO: get this to work all the time
+  for ( var i = 0; i < asteroids.length; i++ )
   {
-    // TODO: get this to work.
-    for ( var i = 0; i < asteroids.length; i++ )
+    var asteroid = asteroids[i];
+
+    if( asteroid == this)
+      break;
+
+    var distance = Math.pow( this.x - asteroid.x, 2) + Math.pow( this.y - asteroid.y, 2);
+    if( distance < Math.pow(this.radius + asteroid.radius, 2) )
     {
-      var asteroid = asteroids[i];
+      collision_sound.play();
 
-      if( asteroid == this)
-        break;
+      /* https://gamedevelopment.tutsplus.com/tutorials/when-worlds-collide-simulating-circle-circle-collisions--gamedev-769 */
+      var x1 = (this.vector.getX() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getX())) / (this.radius + asteroid.radius);
+      var y1 = (this.vector.getY() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getY())) / (this.radius + asteroid.radius);
 
-      var distance = Math.pow( this.x - asteroid.x, 2) + Math.pow( this.y - asteroid.y, 2);
-      if( distance < Math.pow(this.radius + asteroid.radius, 2) )
-      {
-        collision_sound.play();
+      var x2 = (asteroid.vector.getX() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getX())) / (this.radius + asteroid.radius);
+      var y2 = (asteroid.vector.getY() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getY())) / (this.radius + asteroid.radius);
 
-        /* https://gamedevelopment.tutsplus.com/tutorials/when-worlds-collide-simulating-circle-circle-collisions--gamedev-769 */
-        var x1 = (this.vector.getX() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getX())) / (this.radius + asteroid.radius);
-        var y1 = (this.vector.getY() * (this.radius - asteroid.radius) + (2 * asteroid.radius * asteroid.vector.getY())) / (this.radius + asteroid.radius);
+      this.vector.magnitude = Math.sqrt( Math.pow( x1, 2) + Math.pow( y1, 2));
+      this.vector.direction = Math.acos( x1 / this.vector.magnitude);
 
-        var x2 = (asteroid.vector.getX() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getX())) / (this.radius + asteroid.radius);
-        var y2 = (asteroid.vector.getY() * (asteroid.radius - this.radius) + (2 * this.radius * this.vector.getY())) / (this.radius + asteroid.radius);
-
-        this.vector.magnitude = Math.sqrt( Math.pow( x1, 2) + Math.pow( y1, 2));
-        this.vector.direction = Math.acos( x1 / this.vector.magnitude);
-
-        asteroid.vector.magnitude = Math.sqrt( Math.pow( x2, 2) + Math.pow( y2, 2));
-        asteroid.vector.direction = Math.acos( x2 / asteroid.vector.magnitude)
-      }
+      asteroid.vector.magnitude = Math.sqrt( Math.pow( x2, 2) + Math.pow( y2, 2));
+      asteroid.vector.direction = Math.acos( x2 / asteroid.vector.magnitude)
     }
   }
 }
 
 Asteroid.prototype.update = function( deltaT )
 {
-  // TODO: Optional: generalize this as a function
+  // CANDO: generalize this as a function
+  Screenwrap_Object( this, this.radius * 2, this.radius * 2)
+  /*
   if( this.x <= -PLAYER_WIDTH)
     this.x = GAME_WIDTH;
   else if( this.x >= GAME_WIDTH)
@@ -509,7 +547,7 @@ Asteroid.prototype.update = function( deltaT )
   if( this.y <= -PLAYER_WIDTH)
     this.y = GAME_HEIGHT;
   else if( this.y >= GAME_HEIGHT)
-    this.y = -PLAYER_WIDTH;
+    this.y = -PLAYER_WIDTH;*/
 
   this.x += this.vector.getX() * deltaT;
   this.y += this.vector.getY() * deltaT;
@@ -533,8 +571,7 @@ Asteroid.prototype.render = function()
 
   Defines all functions are varibles for the ALIEN object
 /************************************************************************/
-// TODO: Optional: Implement alien. Bonus credit.
-// TODO: Optional: utilize a Shooter superclass & inheirtance
+// CANDO: Optional: utilize a Shooter superclass & inheirtance
 function Alien(x, y, direction)
 {
   this.x = x;
@@ -566,11 +603,15 @@ Alien.prototype.Check_Asteroid_Collision = function()
 var last_alien_shot = 0;
 Alien.prototype.Shoot = function()
 {
+  // CANDO: make the alien shoot at the player
   if( last_alien_shot >= ALIEN_RELOAD_TIME)
   {
-    bullets.push(new Bullet( this.x, this.y, Math.atan( this.x - player.x / this.y - player.y)));
+    var new_bullet = new Bullet( this.x - 1, this.y - 1, this.vector.direction);
+    new_bullet.is_alien = true;
+    bullets.push( new_bullet);
     laser_sound.play();
     last_alien_shot = 0;
+    this.vector.direction += Math.random() * 2 - 1;
   }
   last_alien_shot += 1;
 }
@@ -578,15 +619,8 @@ Alien.prototype.Shoot = function()
 Alien.prototype.update = function( elapsedTime)
 {
   /* Wrap Player around the map if necessary */
-  // TODO: Optional: make this a general function
-  if( this.x <= -PLAYER_WIDTH)
-    this.x = GAME_WIDTH;
-  else if( this.x >= GAME_WIDTH)
-    this.x = -PLAYER_WIDTH;
-  if( this.y <= -PLAYER_WIDTH)
-    this.y = GAME_HEIGHT;
-  else if( this.y >= GAME_HEIGHT)
-    this.y = -PLAYER_WIDTH;
+  // CANDO: make this a general function
+  Screenwrap_Object( this, PLAYER_WIDTH, PLAYER_HEIGHT);
 
   this.x += this.vector.getX() * elapsedTime;
   this.y += this.vector.getY() * elapsedTime;
@@ -595,13 +629,15 @@ Alien.prototype.update = function( elapsedTime)
 
   this.Check_Asteroid_Collision();
 
+  /* Check bullet collision */
   var alien = this;
   bullets.forEach( function(bullet, index)
   {
-    if( bullet.x <= ( alien.x + PLAYER_WIDTH))
+    if( bullet.x <= ( alien.x + PLAYER_WIDTH) && bullet.x >= ( alien.x))
     {
       if( bullet.y >= alien.y && bullet.y <= (alien.y + PLAYER_WIDTH))
       {
+        console.log( bullet.x, bullet.y, alien.x, alien.y, PLAYER_WIDTH);
         bullets.splice(index, 1);
         aliens.splice( aliens.indexOf(alien), 1);
       }
@@ -621,7 +657,7 @@ Alien.prototype.render = function()
   Displays user information on screen
 /************************************************************************/
 function UserInterface() {}
-// TODO: Optional: use an HTML element instead of the Canvas
+// CANDO: use an HTML element instead of the Canvas
 UserInterface.prototype.render = function()
 {
   var interface_y = GAME_HEIGHT+1;
@@ -660,7 +696,7 @@ UserInterface.prototype.render = function()
   /* could also use fillStyle = '#d2d2d2' */
   screenCtx.fillRect( game_over_box_x, GAME_HEIGHT+1, 245, interface_y);
 
-  // TODO: Optional: fix round_over flag
+  // CANDO: fix round_over flag
   if( round_over == false)
   {
     screenCtx.fillStyle = 'white';
@@ -678,9 +714,9 @@ UserInterface.prototype.render = function()
   }
   else
   {
+    screenCtx.fillStyle = 'red';
     screenCtx.fillText("Refresh the page to try again", GAME_WIDTH/2-100, GAME_HEIGHT/2 + 200);
 
-    screenCtx.fillStyle = 'red';
     screenCtx.fillText("Game over!", game_status_x, interface_text_y);
 
     screenCtx.font = "12px sans-serif"
@@ -701,19 +737,20 @@ UserInterface.prototype.render = function()
 
   if( show_instructions == true)
   {
+    var starting_x = 50;
     var starting_y = 100;
     screenCtx.fillStyle = "#000000";
     screenCtx.font = "20px sans-serif"
-    screenCtx.fillText("Instructions:", 250, starting_y);
+    screenCtx.fillText("Instructions:", starting_x, starting_y);
 
     screenCtx.font = "16px sans-serif"
-    screenCtx.fillText("Left arrow turns the ship to the left.", 300, starting_y + 50);
-    screenCtx.fillText("Right arrow turns the ship to the right.", 300, starting_y + 70);
-    screenCtx.fillText("Up arrow moves the ship forward.", 300, starting_y + 90);
-    screenCtx.fillText("Down arrow moves the ship backward.", 300, starting_y + 110);
-    screenCtx.fillText("Space fires a laser beam.", 300, starting_y + 130);
-    screenCtx.fillText("Q teleports the player to a random location.", 300, starting_y + 150);
-    screenCtx.fillText("ESC will toggle instructions.", 300, starting_y + 170);
+    screenCtx.fillText("Left arrow turns the ship to the left.", starting_x + 50, starting_y + 50);
+    screenCtx.fillText("Right arrow turns the ship to the right.", starting_x + 50, starting_y + 70);
+    screenCtx.fillText("Up arrow moves the ship forward.", starting_x + 50, starting_y + 90);
+    screenCtx.fillText("Down arrow moves the ship backward.", starting_x + 50, starting_y + 110);
+    screenCtx.fillText("Space fires a laser beam.", starting_x + 50, starting_y + 130);
+    screenCtx.fillText("Q teleports the player to a random location.", starting_x + 50, starting_y + 150);
+    screenCtx.fillText("ESC will toggle instructions.", starting_x + 50, starting_y + 170);
   }
 }
 
@@ -724,7 +761,7 @@ UserInterface.prototype.render = function()
 /************************************************************************/
 function update( elapsedTime)
 {
-  // TODO: move this
+  // CANDO: move this
   if( asteroids.length == 0)
     round_over = 1;
   else
@@ -799,7 +836,25 @@ function loop(timestamp)
   window.requestAnimationFrame(loop);
 }
 
-/* helps to debug asteroid collision */
+/* helps to debug alien class */
+/*
+aliens.push( new Alien( 100, 100, Math.PI));
+asteroids.push( new Asteroid( 200, 100, 2));
+asteroids[0].vector.direction = 0;
+*/
+
+/* helps to debug asteroid-bullet collision */
+/*
+bullets.push(new Bullet( 200, 100, 0));
+asteroids.push( new Asteroid( 300, 100, 2));
+asteroids[0].vector.direction = 0;
+
+bullets.push(new Bullet( 500, 100, 1 * Math.PI / 2));
+asteroids.push( new Asteroid( 500, 300, 2));
+asteroids[1].vector.direction = Math.PI / 2;
+*/
+
+/* helps to debug asteroid-asteroid collision */
 /*
 asteroids.push( new Asteroid( 200, 100, 2));
 asteroids.push( new Asteroid( 300, 100, 2));
